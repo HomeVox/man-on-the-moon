@@ -1,0 +1,40 @@
+diff --git a/src/lgfx/v1/panel/Panel_AMOLED.cpp b/src/lgfx/v1/panel/Panel_AMOLED.cpp
+index 5008889..82f0624 100644
+--- a/src/lgfx/v1/panel/Panel_AMOLED.cpp
++++ b/src/lgfx/v1/panel/Panel_AMOLED.cpp
+@@ -664,6 +664,11 @@ namespace lgfx
+             uint8_t* buf[2];
+             buf[0] = bus->getDMABuffer(wb);
+             buf[1] = bus->getDMABuffer(wb);
++            if (buf[0] == nullptr || buf[1] == nullptr) {
++                // Kantoor: geen DMA-geheugen vrij; dit stuk overslaan i.p.v. vastlopen.
++                // Het blijft in _range_mod staan en gaat mee met de volgende ronde.
++                return;
++            }
+ 
+             _panel->start_qspi();
+             int fbpos = ys * stride + (xs * bpp);
+diff --git a/src/lgfx/v1/platforms/common.hpp b/src/lgfx/v1/platforms/common.hpp
+index 1a64330..7cb3e77 100644
+--- a/src/lgfx/v1/platforms/common.hpp
++++ b/src/lgfx/v1/platforms/common.hpp
+@@ -98,7 +98,7 @@ namespace lgfx
+     {
+       length = (length + 3) & ~3;
+ 
+-      if (_length != length)
++      if (_length < length)  // Kantoor: alleen groeien (zie FlipBuffer)
+       {
+         if (_buffer) heap_free(_buffer);
+         _buffer = (uint8_t*)heap_alloc_dma(length);
+@@ -140,7 +140,9 @@ namespace lgfx
+       length = (length + 3) & ~3;
+       _flip = !_flip;
+ 
+-      if (_length[_flip] < length || _length[_flip] > length + 64)
++      // Kantoor: alleen groeien, nooit krimpen. Steeds vrijgeven en opnieuw aanvragen
++      // versnipperde het interne RAM tot het scherm geen buffer meer kreeg.
++      if (_length[_flip] < length)
+       {
+         if (_buffer[_flip]) { heap_free(_buffer[_flip]); }
+         _buffer[_flip] = (uint8_t*)heap_alloc_dma(length);
